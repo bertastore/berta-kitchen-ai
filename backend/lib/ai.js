@@ -1,7 +1,4 @@
-const dotenv = require("dotenv");
 const OpenAI = require("openai");
-
-dotenv.config();
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -68,7 +65,7 @@ JSON structure:
     ],
   });
 
-  let content = response.choices[0].message.content;
+let content = response.choices[0].message.content;
 
 content = content.replace(/```json/g, "").replace(/```/g, "").trim();
 
