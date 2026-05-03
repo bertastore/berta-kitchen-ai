@@ -146,7 +146,7 @@ function App() {
     setCopyButtonLabel("Copy Results");
 
     try {
-      const res = await fetch("http://localhost:3000/parse", {
+      const res = await fetch("https://project-sw819-git-main-sales-3536s-projects.vercel.app/api/parse", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
