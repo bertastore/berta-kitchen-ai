@@ -1,13 +1,8 @@
-import { createRequire } from "module";
-import path from "path";
-import { fileURLToPath } from "url";
-import { generateKitchenPlan } from "./lib/rules.js";
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { parseKitchenInput } from "./lib/ai.js";
-
-const require = createRequire(import.meta.url);
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const { generateKitchenPlan } = require("./lib/rules.js");
+const { parseKitchenInput } = require("./lib/ai.js");
 const { generateKitchenSVG } = require("./lib/drawing");
 
 dotenv.config();
@@ -30,7 +25,7 @@ app.post("/parse", async (req, res) => {
     res.json({
       parsedInput: result,
       plan,
-      svg
+      svg,
     });
   } catch (error) {
     console.error(error);
@@ -40,16 +35,10 @@ app.post("/parse", async (req, res) => {
 
 const PORT = 3000;
 
-// Local dev only (same idea as require.main === module in CommonJS).
-const ranAsMainScript =
-  Boolean(process.argv[1]) &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
-
-if (ranAsMainScript) {
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
 
-// Vercel @vercel/node expects default export (ESM; not module.exports).
-export default app;
+module.exports = app;
