@@ -1,6 +1,6 @@
-const { parseKitchenInput } = require("../lib/ai");
-const { generateKitchenPlan } = require("../lib/rules");
-const { generateKitchenSVG } = require("../lib/drawing");
+const { parseKitchenInput } = require("../backend/lib/ai");
+const { generateKitchenPlan } = require("../backend/lib/rules");
+const { generateKitchenSVG } = require("../backend/lib/drawing");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
