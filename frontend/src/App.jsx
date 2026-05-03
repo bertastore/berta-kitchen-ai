@@ -315,10 +315,11 @@ function App() {
               margin: 0,
               fontSize: "1.75rem",
               color: "#fff",
-              fontWeight: 700,
+              fontWeight: 600,
+              letterSpacing: "1px",
             }}
           >
-            AI Kitchen Layout Planner
+            Kitchen Layout Planner
           </h1>
           <strong
             style={{
