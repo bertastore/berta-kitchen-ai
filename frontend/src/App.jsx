@@ -264,6 +264,14 @@ function App() {
             display: none !important;
           }
         }
+        @media screen and (max-width: 767px) {
+          .app-svg-host svg {
+            display: block;
+            max-width: none !important;
+            width: auto !important;
+            height: auto;
+          }
+        }
         @media print {
           .app-no-print {
             display: none !important;
@@ -305,7 +313,7 @@ function App() {
         style={{
           background: "#111",
           color: "#fff",
-          padding: "25px 20px",
+          padding: narrowViewport ? "16px 14px" : "25px 20px",
           textAlign: "center",
         }}
       >
@@ -342,7 +350,7 @@ function App() {
             onChange={(e) => setInput(e.target.value)}
             style={{
               width: "100%",
-              maxWidth: 700,
+              maxWidth: narrowViewport ? "100%" : 700,
               padding: 12,
               borderRadius: 6,
               background: "#222",
@@ -362,22 +370,36 @@ function App() {
               marginTop: 12,
               display: "flex",
               justifyContent: "center",
-              alignItems: "center",
+              alignItems: narrowViewport ? "stretch" : "center",
               flexWrap: "wrap",
+              flexDirection: narrowViewport ? "column" : "row",
+              gap: narrowViewport ? 10 : 0,
+              width: "100%",
+              maxWidth: narrowViewport ? "100%" : undefined,
+              marginLeft: "auto",
+              marginRight: "auto",
             }}
           >
             <button
               type="button"
               onClick={handleGenerate}
               disabled={loading}
-              style={buttonStyle}
+              style={{
+                ...buttonStyle,
+                ...(narrowViewport ? { width: "100%", boxSizing: "border-box" } : {}),
+              }}
             >
               {loading ? "Generating..." : "Generate Kitchen"}
             </button>
             <button
               type="button"
               onClick={handleNewPlan}
-              style={newPlanButtonStyle}
+              style={{
+                ...newPlanButtonStyle,
+                ...(narrowViewport
+                  ? { marginLeft: 0, width: "100%", boxSizing: "border-box" }
+                  : {}),
+              }}
             >
               New Plan
             </button>
@@ -385,12 +407,15 @@ function App() {
 
           <div
             style={{
-              maxWidth: 700,
+              maxWidth: narrowViewport ? "100%" : 700,
               margin: "10px auto 0",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               flexWrap: "wrap",
+              gap: narrowViewport ? 8 : 0,
+              width: narrowViewport ? "100%" : undefined,
+              boxSizing: "border-box",
             }}
           >
             <button
@@ -418,7 +443,7 @@ function App() {
 
           <div
             style={{
-              maxWidth: 700,
+              maxWidth: narrowViewport ? "100%" : 700,
               margin: "12px auto 0",
               background: "#151515",
               border: "1px solid #2a2a2a",
@@ -473,7 +498,10 @@ function App() {
       {plan ? (
         <div
           className="app-print-root"
-          style={{ background: "#f7f7f7", padding: "0 20px 40px" }}
+          style={{
+            background: "#f7f7f7",
+            padding: narrowViewport ? "0 12px 32px" : "0 20px 40px",
+          }}
         >
           <h1 className="app-print-only">Kitchen Layout Plan</h1>
           {currentRequest ? (
@@ -516,15 +544,20 @@ function App() {
             style={{
               display: "grid",
               gridTemplateColumns: narrowViewport ? "1fr" : "2fr 1fr",
-              gap: 24,
+              gap: narrowViewport ? 16 : 24,
               maxWidth: 1100,
+              width: "100%",
               margin: "24px auto 0",
               alignItems: "start",
+              boxSizing: "border-box",
             }}
           >
             <div
               className="app-print-card"
-              style={{ ...cardStyle, overflowX: "auto" }}
+              style={{
+                ...cardStyle,
+                ...(narrowViewport ? { padding: 14, width: "100%", minWidth: 0 } : {}),
+              }}
             >
               <div
                 style={{
@@ -567,12 +600,28 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div dangerouslySetInnerHTML={{ __html: svg }} />
+              <div
+                style={{
+                  overflowX: "auto",
+                  width: "100%",
+                  display: "block",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                <div
+                  className="app-svg-host"
+                  dangerouslySetInnerHTML={{ __html: svg }}
+                />
+              </div>
             </div>
 
             <div
               className="app-print-card"
-              style={{ ...cardStyle, textAlign: "left" }}
+              style={{
+                ...cardStyle,
+                textAlign: "left",
+                ...(narrowViewport ? { padding: 14, width: "100%", minWidth: 0 } : {}),
+              }}
             >
               <div
                 style={{
