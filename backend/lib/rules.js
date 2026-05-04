@@ -1,3 +1,179 @@
+const APPLIANCE_ORDER = ["sink", "dishwasher", "stove", "fridge"];
+
+const APPLIANCE_WIDTH = {
+  sink: 36,
+  dishwasher: 24,
+  stove: 30,
+  fridge: 36
+};
+
+function inchesFromUserSize(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 50 ? n * 12 : n;
+}
+
+function seedEmptyWalls(result) {
+  result.layout = [
+    { wall: "A", items: [] },
+    { wall: "B", items: [] }
+  ];
+  result.upperCabinets = [
+    { wall: "A", items: [] },
+    { wall: "B", items: [] }
+  ];
+  result.materials = buildMaterialEstimate(result.layout, result.upperCabinets);
+}
+
+function obstacleResolvedWall(o) {
+  const w = o?.wall;
+  if (w === "A" || w === "B") return w;
+  const side = String(o?.side ?? "").toLowerCase();
+  if (side === "left") return "A";
+  if (side === "right") return "B";
+  return null;
+}
+
+function normalizeApplianceRecord(raw) {
+  const type = String(raw?.type ?? "").toLowerCase().trim();
+  if (!["stove", "fridge", "dishwasher", "sink"].includes(type)) return null;
+  let wall = raw?.wall;
+  if (wall !== "A" && wall !== "B") wall = null;
+  let side = raw?.side;
+  if (side !== "left" && side !== "right") side = null;
+  if (!wall) {
+    if (side === "left") wall = "A";
+    else if (side === "right") wall = "B";
+  }
+  const position =
+    raw?.position === undefined || raw?.position === null
+      ? null
+      : Number(raw.position);
+  return {
+    type,
+    wall,
+    side,
+    position: Number.isFinite(position) ? position : null
+  };
+}
+
+function inferSinkWallFromLayout(layout, obstacles) {
+  const sp = String(layout?.sink_position ?? "").toLowerCase();
+  if (!sp) return null;
+  if (sp.includes("left")) return "A";
+  if (sp.includes("right")) return "B";
+  if (sp.includes("under window")) {
+    const win = (obstacles || []).find(
+      (o) =>
+        String(o.type).toLowerCase() === "window" &&
+        obstacleResolvedWall(o) !== null
+    );
+    return win ? obstacleResolvedWall(win) : null;
+  }
+  return null;
+}
+
+function applyDefaultApplianceWalls(specs) {
+  if (specs.sink && !specs.sink.wall) {
+    specs.sink.wall = "A";
+  }
+
+  const resolvedSinkWall = specs.sink?.wall;
+
+  if (specs.dishwasher && !specs.dishwasher.wall) {
+    specs.dishwasher.wall = resolvedSinkWall || "A";
+  }
+
+  if (specs.stove && !specs.stove.wall) {
+    specs.stove.wall = resolvedSinkWall || "A";
+  }
+
+  if (specs.fridge && !specs.fridge.wall) {
+    specs.fridge.wall = "B";
+  }
+}
+
+function buildApplianceSpecs(input) {
+  const layout = input.layout || {};
+  const obstacles = input.obstacles || [];
+  const specs = {};
+
+  for (const app of input.appliances || []) {
+    const rec = normalizeApplianceRecord(app);
+    if (rec) specs[rec.type] = rec;
+  }
+
+  if (!specs.sink && layout.sink_position) {
+    let wall = inferSinkWallFromLayout(layout, obstacles);
+    if (!wall) wall = "A";
+    specs.sink = {
+      type: "sink",
+      wall,
+      side: null,
+      position: null
+    };
+  }
+
+  applyDefaultApplianceWalls(specs);
+  return specs;
+}
+
+function orderedApplianceTypesForWall(wallId, specs) {
+  return APPLIANCE_ORDER.filter((t) => specs[t]?.wall === wallId);
+}
+
+function widthForFitCheck(applianceType) {
+  if (applianceType === "fridge") return APPLIANCE_WIDTH.fridge + 2;
+  return APPLIANCE_WIDTH[applianceType] || 0;
+}
+
+function humanizeApplianceLabel(t) {
+  switch (t) {
+    case "sink":
+      return "Sink";
+    case "dishwasher":
+      return "Dishwasher";
+    case "stove":
+      return "Stove";
+    case "fridge":
+      return "Fridge";
+    default:
+      return t;
+  }
+}
+
+function addApplianceFitWarnings(walls, specs, warnings) {
+  for (const wall of walls) {
+    const typesHere = orderedApplianceTypesForWall(wall.id, specs);
+    if (typesHere.length === 0) continue;
+    const needed = typesHere.reduce((sum, t) => sum + widthForFitCheck(t), 0);
+    if (needed > wall.length) {
+      const labels = typesHere
+        .map(humanizeApplianceLabel)
+        .sort((a, b) => a.localeCompare(b))
+        .join(" and ");
+      warnings.push(
+        `${labels} requested on Wall ${wall.id}, but available space is not enough.`
+      );
+    }
+  }
+}
+
+function maybeAddSinkUnderWindowQuestion(input, result) {
+  const sp = String(input.layout?.sink_position ?? "").toLowerCase();
+  if (!sp.includes("under window")) return;
+  const hasWindowWall = (input.obstacles || []).some((o) => {
+    if (String(o.type).toLowerCase() !== "window") return false;
+    return obstacleResolvedWall(o) !== null;
+  });
+  if (!hasWindowWall) {
+    result.missingQuestions.push(
+      "Which wall is the window on (A or B)? The sink is specified under the window."
+    );
+  }
+}
+
 function generateKitchenPlan(input) {
   const result = {
     summary: {},
@@ -10,21 +186,50 @@ function generateKitchenPlan(input) {
     missingQuestions: []
   };
 
-  const length = input.size?.length || 0;
-  const width = input.size?.width || 0;
-
-  let lengthInches = length;
-  let widthInches = width;
-  if (length < 50) lengthInches = length * 12;
-  if (width < 50) widthInches = width * 12;
-
   const normalizedShape = normalizeShape(input.shape);
   result.summary.shape = normalizedShape;
-  result.summary.linearFeet = (lengthInches + widthInches) / 12;
-
   const isLShape = normalizedShape === "L";
 
-  if (input.layout?.sink_position) {
+  const lengthInches = inchesFromUserSize(input.size?.length);
+  const widthInches = inchesFromUserSize(input.size?.width);
+
+  if (lengthInches == null || widthInches == null) {
+    result.missingQuestions.push(
+      "Kitchen length and width are required (feet or inches) to generate a layout. Please provide both dimensions."
+    );
+    result.summary.linearFeet = 0;
+    seedEmptyWalls(result);
+    return result;
+  }
+
+  let wallALength = lengthInches;
+  let wallBLength = widthInches;
+
+  if (isLShape) {
+    wallALength -= 36;
+    wallBLength -= 36;
+
+    result.warnings.push(
+      "36 inch corner cabinet space subtracted from both L-shape walls."
+    );
+  }
+
+  result.summary.linearFeet = (lengthInches + widthInches) / 12;
+
+  const walls = [
+    { id: "A", length: wallALength },
+    { id: "B", length: wallBLength }
+  ];
+
+  maybeAddSinkUnderWindowQuestion(input, result);
+
+  const specs = buildApplianceSpecs(input);
+  const resolvedSinkWall = specs.sink?.wall ?? "A";
+
+  const hasSink =
+    Boolean(specs.sink) || Boolean(input.layout?.sink_position);
+
+  if (hasSink) {
     result.cabinetList.push({
       name: "36 inch sink base",
       qty: 1
@@ -40,35 +245,6 @@ function generateKitchenPlan(input) {
 
   const cabinetSizes = [36, 30, 24, 18, 12];
 
-  let wallALength = lengthInches;
-  let wallBLength = widthInches;
-
-  if (isLShape) {
-    wallALength -= 36;
-    wallBLength -= 36;
-
-    result.warnings.push(
-      "36 inch corner cabinet space subtracted from both L-shape walls."
-    );
-  }
-
-  const walls = [
-    { id: "A", length: wallALength },
-    { id: "B", length: wallBLength }
-  ];
-
-  const applianceTypes = [
-    ...new Set(
-      (input.appliances || [])
-        .map((app) => (typeof app?.type === "string" ? app.type : ""))
-        .filter(Boolean)
-    )
-  ];
-
-  const hasDishwasher = applianceTypes.includes("dishwasher");
-  const hasStove = applianceTypes.includes("stove");
-  const hasFridge = applianceTypes.includes("fridge");
-
   const wantsUpperCabinets =
     input.preferences == null ||
     input.preferences.upperCabinets === undefined ||
@@ -76,8 +252,12 @@ function generateKitchenPlan(input) {
       ? true
       : Boolean(input.preferences.upperCabinets);
 
-  let dishwasherPlaced = false;
-  let stovePlaced = false;
+  const sinkUnderWindow =
+    typeof input.layout?.sink_position === "string" &&
+    input.layout.sink_position.toLowerCase().includes("under window");
+
+  addApplianceFitWarnings(walls, specs, result.warnings);
+
   let fridgePlaced = false;
 
   walls.forEach((wall) => {
@@ -90,18 +270,9 @@ function generateKitchenPlan(input) {
       items: []
     };
 
-    const isSinkWall =
-      wall.id === "A" &&
-      input.layout?.sink_position &&
-      input.layout.sink_position.includes("left");
-
-    const sinkUnderWindow =
-      typeof input.layout?.sink_position === "string" &&
-      input.layout.sink_position.toLowerCase().includes("under window");
-
-    let sinkPlaced = false;
-
-    const obstacles = (input.obstacles || []).filter((o) => o.wall === wall.id);
+    const obstacles = (input.obstacles || []).filter(
+      (o) => obstacleResolvedWall(o) === wall.id
+    );
     const doors = obstacles
       .filter((o) => o.type === "door")
       .map((o) => ({
@@ -170,119 +341,80 @@ function generateKitchenPlan(input) {
       return any;
     };
 
-    cabinetSizes.forEach((size) => {
-      while (remaining >= size) {
-        syncFromRemaining();
+    const typesHere = orderedApplianceTypesForWall(wall.id, specs);
 
-        if (isSinkWall && !sinkPlaced && size === 36) {
-          flushDoorBeforePlace(36);
-          syncFromRemaining();
-          if (
-            remaining < 36 ||
-            segmentOverlapsAnyDoor(position, 36, unconsumedDoors())
-          ) {
-            if (
-              remaining >= 36 &&
-              segmentOverlapsAnyDoor(position, 36, unconsumedDoors())
-            ) {
-              result.warnings.push(
-                "Sink could not be placed on Wall A due to door placement."
-              );
-            }
-            sinkPlaced = true;
-            continue;
-          }
+    const placeApplianceOrWarn = (appType, width, itemPayload) => {
+      flushDoorBeforePlace(width);
+      syncFromRemaining();
+      if (
+        remaining < width ||
+        segmentOverlapsAnyDoor(position, width, unconsumedDoors())
+      ) {
+        result.warnings.push(
+          `${humanizeApplianceLabel(
+            appType
+          )} could not be placed on Wall ${wall.id} due to limited space or door placement.`
+        );
+        return false;
+      }
+      wallPlan.items.push(itemPayload);
+      applyPlacement(width);
+      return true;
+    };
 
-          wallPlan.items.push({
-            type: "sink",
-            name: "36 inch sink base",
-            width: 36
-          });
+    let applianceRunBlocked = false;
+    for (const appType of typesHere) {
+      if (appType === "sink" && !hasSink) continue;
+      if (applianceRunBlocked) break;
 
-          sinkPlaced = true;
-          applyPlacement(36);
+      if (appType === "sink") {
+        const ok = placeApplianceOrWarn("sink", APPLIANCE_WIDTH.sink, {
+          type: "sink",
+          name: "36 inch sink base",
+          width: APPLIANCE_WIDTH.sink
+        });
+        if (!ok) applianceRunBlocked = true;
+        continue;
+      }
 
-          if (hasDishwasher && !dishwasherPlaced && remaining >= 24) {
-            syncFromRemaining();
-            flushDoorBeforePlace(24);
-            syncFromRemaining();
-            if (
-              remaining >= 24 &&
-              !segmentOverlapsAnyDoor(position, 24, unconsumedDoors())
-            ) {
-              wallPlan.items.push({
-                type: "appliance",
-                name: "24 inch dishwasher",
-                width: 24
-              });
-
-              dishwasherPlaced = true;
-              applyPlacement(24);
-
-              result.warnings.push("Dishwasher placed next to sink.");
-            }
-          }
-
-          if (
-            hasStove &&
-            !stovePlaced &&
-            (dishwasherPlaced || !hasDishwasher) &&
-            remaining >= 30
-          ) {
-            syncFromRemaining();
-            flushDoorBeforePlace(30);
-            syncFromRemaining();
-            if (
-              remaining >= 30 &&
-              !segmentOverlapsAnyDoor(position, 30, unconsumedDoors())
-            ) {
-              wallPlan.items.push({
-                type: "appliance",
-                name: "30 inch stove",
-                width: 30
-              });
-
-              stovePlaced = true;
-              applyPlacement(30);
-
-              result.warnings.push("Stove placed in layout.");
-            }
-          }
-
-          continue;
-        }
-
-        if (hasFridge && !fridgePlaced && wall.id === "B" && remaining >= 36) {
-          syncFromRemaining();
-          flushDoorBeforePlace(36);
-          syncFromRemaining();
-          if (
-            remaining < 36 ||
-            segmentOverlapsAnyDoor(position, 36, unconsumedDoors())
-          ) {
-            if (
-              hasFridge &&
-              !fridgePlaced &&
-              remaining >= 36 &&
-              segmentOverlapsAnyDoor(position, 36, unconsumedDoors())
-            ) {
-              result.warnings.push(
-                "Fridge could not be placed on Wall B due to door placement."
-              );
-              fridgePlaced = true;
-            }
-            continue;
-          }
-
-          wallPlan.items.push({
+      if (appType === "dishwasher") {
+        const ok = placeApplianceOrWarn(
+          "dishwasher",
+          APPLIANCE_WIDTH.dishwasher,
+          {
             type: "appliance",
-            name: "36 inch fridge opening",
-            width: 36
-          });
+            name: "24 inch dishwasher",
+            width: APPLIANCE_WIDTH.dishwasher
+          }
+        );
+        if (ok) {
+          result.warnings.push("Dishwasher placed next to sink.");
+        } else if (specs.sink?.wall === wall.id) {
+          applianceRunBlocked = true;
+        }
+        continue;
+      }
 
+      if (appType === "stove") {
+        const ok = placeApplianceOrWarn("stove", APPLIANCE_WIDTH.stove, {
+          type: "appliance",
+          name: "30 inch stove",
+          width: APPLIANCE_WIDTH.stove
+        });
+        if (ok) {
+          result.warnings.push("Stove placed in layout.");
+        }
+        continue;
+      }
+
+      if (appType === "fridge") {
+        const ok = placeApplianceOrWarn("fridge", APPLIANCE_WIDTH.fridge, {
+          type: "appliance",
+          name: "36 inch fridge opening",
+          width: APPLIANCE_WIDTH.fridge
+        });
+        if (ok) {
           fridgePlaced = true;
-          applyPlacement(36);
-
           if (remaining >= 2) {
             syncFromRemaining();
             flushDoorBeforePlace(2);
@@ -296,15 +428,18 @@ function generateKitchenPlan(input) {
                 name: "2 inch fridge clearance filler",
                 width: 2
               });
-
               applyPlacement(2);
             }
           }
-
-          result.warnings.push("Fridge placed on Wall B with side clearance.");
-          continue;
+          result.warnings.push(
+            `Fridge placed on Wall ${wall.id} with side clearance.`
+          );
         }
+      }
+    }
 
+    cabinetSizes.forEach((size) => {
+      while (remaining >= size) {
         syncFromRemaining();
         flushDoorBeforePlace(size);
         syncFromRemaining();
@@ -348,7 +483,8 @@ function generateKitchenPlan(input) {
       wallPlan,
       windows,
       wall.id,
-      sinkUnderWindow
+      sinkUnderWindow,
+      resolvedSinkWall
     );
 
     const upperPlan = wantsUpperCabinets
@@ -356,14 +492,19 @@ function generateKitchenPlan(input) {
           wall.id,
           wallPlan.items,
           sinkUnderWindow,
-          result.warnings
+          result.warnings,
+          resolvedSinkWall
         )
       : { wall: wall.id, items: [] };
 
     wallPlan.items = normalizeWallLayoutItems(wall.id, wallPlan.items);
     upperPlan.items = normalizeUpperCabinetItems(wall.id, upperPlan.items);
 
-    if (wall.id === "A" && sinkUnderWindow && windows.length > 0) {
+    if (
+      wall.id === resolvedSinkWall &&
+      sinkUnderWindow &&
+      windows.length > 0
+    ) {
       result.advice.push(
         "Sink can be placed under the window if plumbing and window height allow."
       );
@@ -373,8 +514,10 @@ function generateKitchenPlan(input) {
     result.upperCabinets.push(upperPlan);
   });
 
-  if (hasFridge && !fridgePlaced) {
-    result.warnings.push("Fridge was requested but there was not enough space on Wall B.");
+  if (specs.fridge && !fridgePlaced) {
+    result.warnings.push(
+      `Fridge was requested for Wall ${specs.fridge.wall} but could not be placed with available space.`
+    );
   }
 
   result.materials = buildMaterialEstimate(result.layout, result.upperCabinets);
@@ -665,13 +808,14 @@ function insertWindowObstaclesIntoWallPlan(
   wallPlan,
   windows,
   wallId,
-  sinkUnderWindow
+  sinkUnderWindow,
+  sinkWallId = "A"
 ) {
   const physical = [...wallPlan.items];
   const inserts = [];
   const sinkIdx = physical.findIndex((it) => it.type === "sink");
   const runEnd =
-    wallId === "A" && sinkUnderWindow && sinkIdx !== -1
+    wallId === sinkWallId && sinkUnderWindow && sinkIdx !== -1
       ? findSinkApplianceRunEnd(physical)
       : -1;
 
@@ -680,7 +824,7 @@ function insertWindowObstaclesIntoWallPlan(
     const at = findWindowInsertIndex(physical, win);
     if (at < 0) continue;
     if (
-      wallId === "A" &&
+      wallId === sinkWallId &&
       sinkUnderWindow &&
       sinkIdx !== -1 &&
       runEnd > sinkIdx + 1 &&
@@ -864,7 +1008,13 @@ function isTallOrPantryBase(item) {
  * merges eligible consecutive widths before packing standard upper sizes.
  * Skips individual upper pieces whose wall span overlaps a door opening.
  */
-function buildUpperCabinetPlanForWall(wallId, layoutItems, sinkUnderWindow, warnings) {
+function buildUpperCabinetPlanForWall(
+  wallId,
+  layoutItems,
+  sinkUnderWindow,
+  warnings,
+  sinkWallId = "A"
+) {
   const out = [];
   const doorIntervals = collectDoorWallIntervals(layoutItems);
   const warned = {
@@ -929,7 +1079,7 @@ function buildUpperCabinetPlanForWall(wallId, layoutItems, sinkUnderWindow, warn
     }
 
     if (item.type === "sink") {
-      if (wallId === "A" && sinkUnderWindow) {
+      if (wallId === sinkWallId && sinkUnderWindow) {
         flushRun();
         if (!warned.sinkUnderWindow) {
           warnings.push("Sink under window skipped for uppers.");
