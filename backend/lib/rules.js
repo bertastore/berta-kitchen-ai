@@ -202,6 +202,9 @@ function generateKitchenPlan(input) {
     return result;
   }
 
+  const wallAOriginal = lengthInches;
+  const wallBOriginal = widthInches;
+
   let wallALength = lengthInches;
   let wallBLength = widthInches;
 
@@ -215,6 +218,10 @@ function generateKitchenPlan(input) {
   }
 
   result.summary.linearFeet = (lengthInches + widthInches) / 12;
+  result.summary.wallAOriginal = wallAOriginal;
+  result.summary.wallBOriginal = wallBOriginal;
+  result.summary.wallAUsable = wallALength;
+  result.summary.wallBUsable = wallBLength;
 
   const walls = [
     { id: "A", length: wallALength },

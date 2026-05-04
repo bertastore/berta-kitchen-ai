@@ -59,11 +59,24 @@ const examplePromptButtonStyle = {
   fontSize: 14,
 };
 
+function formatInches(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return Math.abs(n - Math.round(n)) < 0.01 ? String(Math.round(n)) : n.toFixed(1);
+}
+
 function buildPlanCopyText(plan) {
   const lines = [];
   lines.push("Summary");
   lines.push(`Shape: ${plan.summary?.shape ?? "—"}`);
   lines.push(`Linear Feet: ${plan.summary?.linearFeet ?? "—"} ft`);
+  if (plan.summary?.wallAOriginal != null && plan.summary?.wallBOriginal != null) {
+    lines.push(`Wall A: ${formatInches(plan.summary.wallAOriginal)}"`);
+    lines.push(`Wall B: ${formatInches(plan.summary.wallBOriginal)}"`);
+  }
+  if (plan.summary?.wallAUsable != null && plan.summary?.wallBUsable != null) {
+    lines.push(`Usable Wall A: ${formatInches(plan.summary.wallAUsable)}"`);
+    lines.push(`Usable Wall B: ${formatInches(plan.summary.wallBUsable)}"`);
+  }
   lines.push("");
   lines.push("Materials");
   for (const [key, value] of Object.entries(plan.materials || {})) {
@@ -687,6 +700,56 @@ function App() {
                 >
                   Linear Feet: {plan.summary?.linearFeet ?? "—"} ft
                 </p>
+                {plan.summary?.wallAOriginal != null &&
+                plan.summary?.wallBOriginal != null ? (
+                  <>
+                    <p
+                      style={{
+                        margin: "4px 0",
+                        textAlign: "left",
+                        ...summaryBodyStyle,
+                        color: "#333",
+                      }}
+                    >
+                      Wall A: {formatInches(plan.summary.wallAOriginal)}&quot;
+                    </p>
+                    <p
+                      style={{
+                        margin: "4px 0",
+                        textAlign: "left",
+                        ...summaryBodyStyle,
+                        color: "#333",
+                      }}
+                    >
+                      Wall B: {formatInches(plan.summary.wallBOriginal)}&quot;
+                    </p>
+                  </>
+                ) : null}
+                {plan.summary?.wallAUsable != null &&
+                plan.summary?.wallBUsable != null ? (
+                  <>
+                    <p
+                      style={{
+                        margin: "4px 0",
+                        textAlign: "left",
+                        ...summaryBodyStyle,
+                        color: "#333",
+                      }}
+                    >
+                      Usable Wall A: {formatInches(plan.summary.wallAUsable)}&quot;
+                    </p>
+                    <p
+                      style={{
+                        margin: "4px 0",
+                        textAlign: "left",
+                        ...summaryBodyStyle,
+                        color: "#333",
+                      }}
+                    >
+                      Usable Wall B: {formatInches(plan.summary.wallBUsable)}&quot;
+                    </p>
+                  </>
+                ) : null}
               </div>
 
               <div style={summarySectionStyle}>

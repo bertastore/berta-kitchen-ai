@@ -65,6 +65,11 @@ function drawLegend() {
   return legend;
 }
 
+function fmtInchesForLabel(n) {
+  if (n == null || !Number.isFinite(n)) return "";
+  return Math.abs(n - Math.round(n)) < 0.01 ? String(Math.round(n)) : n.toFixed(1);
+}
+
 function generateKitchenSVG(plan) {
   const SCALE = 2;
   const svgWidth = 800;
@@ -109,6 +114,11 @@ function generateKitchenSVG(plan) {
     wallB && wallB.items.length > 0
       ? wallB.items[wallB.items.length - 1].end
       : null;
+
+  const totalA = plan.summary?.wallAOriginal;
+  const totalB = plan.summary?.wallBOriginal;
+  const usableA = plan.summary?.wallAUsable;
+  const usableB = plan.summary?.wallBUsable;
 
   const wallABaseLineY = BASE_Y + 60;
   svg += `
@@ -302,20 +312,45 @@ function generateKitchenSVG(plan) {
   });
 
   const dimY = wallABaseLineY + 20;
-  if (wallAEndInches != null) {
+  const dimLine = 14;
+  let depthNotesY = dimY;
+
+  if (wallAEndInches != null && totalA != null && usableA != null) {
+    depthNotesY = dimY + dimLine * 2;
     svg += `
-  <text x="${wallALength / 2}" y="${dimY}" text-anchor="middle" font-size="11" fill="#000">Wall A: ${wallAEndInches}"</text>`;
+  <text x="${wallALength / 2}" y="${dimY}" text-anchor="middle" font-size="11" fill="#000">Wall A Total: ${fmtInchesForLabel(
+      totalA
+    )}"</text>
+  <text x="${wallALength / 2}" y="${
+      dimY + dimLine
+    }" text-anchor="middle" font-size="11" fill="#000">Usable Run: ${fmtInchesForLabel(usableA)}"</text>`;
+  } else if (wallAEndInches != null) {
+    depthNotesY = dimY + dimLine;
+    svg += `
+  <text x="${wallALength / 2}" y="${dimY}" text-anchor="middle" font-size="11" fill="#000">Wall A (usable layout): ${wallAEndInches}"</text>`;
   }
   svg += `
-  <text x="10" y="${dimY + 22}" font-size="10" fill="#000">Base Depth: 24"</text>
-  <text x="10" y="${dimY + 38}" font-size="10" fill="#000">Upper Depth: 12"</text>
+  <text x="10" y="${depthNotesY + 22}" font-size="10" fill="#000">Base Depth: 24"</text>
+  <text x="10" y="${depthNotesY + 38}" font-size="10" fill="#000">Upper Depth: 12"</text>
 `;
   if (wallBEndInches != null && wallB && wallB.items.length > 0) {
     const wallBX = wallALength + GAP;
     const bLblX = wallBX - 18;
-    const bLblY = BASE_Y + wallBHeight / 2;
-    svg += `
-  <text x="${bLblX}" y="${bLblY}" font-size="11" fill="#000" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${bLblX} ${bLblY})">Wall B: ${wallBEndInches}"</text>`;
+    const baseCenterY = BASE_Y + wallBHeight / 2;
+    if (totalB != null && usableB != null) {
+      const line1Y = baseCenterY - dimLine / 2;
+      const line2Y = baseCenterY + dimLine / 2;
+      svg += `
+  <text x="${bLblX}" y="${line1Y}" font-size="10" fill="#000" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${bLblX} ${line1Y})">Wall B Total: ${fmtInchesForLabel(
+        totalB
+      )}"</text>
+  <text x="${bLblX - 14}" y="${line2Y}" font-size="10" fill="#000" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${bLblX - 14} ${line2Y})">Usable Run: ${fmtInchesForLabel(
+        usableB
+      )}"</text>`;
+    } else {
+      svg += `
+  <text x="${bLblX}" y="${baseCenterY}" font-size="11" fill="#000" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${bLblX} ${baseCenterY})">Wall B (usable layout): ${wallBEndInches}"</text>`;
+    }
   }
 
   svg += drawLegend();
