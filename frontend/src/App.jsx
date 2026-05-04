@@ -100,6 +100,14 @@ function buildPlanCopyText(plan) {
   return lines.join("\n");
 }
 
+function trackEvent(eventName) {
+  if (window.gtag) {
+    window.gtag("event", eventName, {
+      app_name: "kitchen_layout_planner",
+    });
+  }
+}
+
 function App() {
   const [input, setInput] = useState("");
   const [svg, setSvg] = useState("");
@@ -128,6 +136,7 @@ function App() {
   }, []);
 
   const handleGenerate = async () => {
+    trackEvent("generate_kitchen_click");
     if (!input.trim()) {
       setError("Please describe your kitchen first.");
       return;
@@ -199,6 +208,7 @@ function App() {
 
   const handleCopyResults = async () => {
     if (!plan) return;
+    trackEvent("copy_results_click");
     try {
       await navigator.clipboard.writeText(buildPlanCopyText(plan));
       setCopyButtonLabel("Copied!");
@@ -216,6 +226,7 @@ function App() {
 
   const handleDownloadSvg = () => {
     if (!svg) return;
+    trackEvent("download_svg_click");
     const blob = new Blob([svg], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -228,6 +239,7 @@ function App() {
   };
 
   const handleExportPdf = () => {
+    trackEvent("export_pdf_click");
     window.print();
   };
 
