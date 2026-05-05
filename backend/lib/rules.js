@@ -94,6 +94,106 @@ function applyDefaultApplianceWalls(specs) {
   }
 }
 
+function utilityWall(util) {
+  const wall = util?.wall;
+  if (wall === "A" || wall === "B") return wall;
+  return null;
+}
+
+function utilityPosition(util) {
+  if (util?.position === undefined || util?.position === null) return null;
+  const n = Number(util.position);
+  return Number.isFinite(n) ? n : null;
+}
+
+function hasExactUtilityLocation(util) {
+  return utilityWall(util) !== null && utilityPosition(util) !== null;
+}
+
+function hasWindowDimensions(windowObstacle) {
+  if (!windowObstacle) return false;
+  const start = Number(windowObstacle.start);
+  const width = Number(windowObstacle.width);
+  return Number.isFinite(start) && start >= 0 && Number.isFinite(width) && width > 0;
+}
+
+function getWindowObstacle(input, wallId = null) {
+  return (input.obstacles || []).find((o) => {
+    if (String(o?.type).toLowerCase() !== "window") return false;
+    if (!wallId) return true;
+    return obstacleResolvedWall(o) === wallId;
+  }) || null;
+}
+
+function getCornerCabinetPlan(input, isLShape) {
+  const requested = Boolean(input.cornerCabinet?.requested);
+  const type = input.cornerCabinet?.type === "lazy_susan" ? "lazy_susan" : null;
+
+  if (!isLShape) {
+    return {
+      requested,
+      placed: false,
+      type,
+      name: requested && type === "lazy_susan" ? "Lazy Susan Corner Base" : null,
+      width: requested ? 36 : 0,
+      category: requested ? "cabinet" : null
+    };
+  }
+
+  if (requested && type === "lazy_susan") {
+    return {
+      requested: true,
+      placed: true,
+      type: "lazy_susan",
+      name: "Lazy Susan Corner Base",
+      width: 36,
+      category: "cabinet"
+    };
+  }
+
+  return {
+    requested,
+    placed: true,
+    type: null,
+    name: "36 inch corner cabinet",
+    width: 36,
+    category: "cabinet"
+  };
+}
+
+function maybeAddExactPlacementQuestions(input, specs, result) {
+  const utilities = input.utilities || {};
+  const sinkUnderWindow =
+    typeof input.layout?.sink_position === "string" &&
+    input.layout.sink_position.toLowerCase().includes("under window");
+  const sinkWall = specs.sink?.wall ?? inferSinkWallFromLayout(input.layout, input.obstacles);
+  const relevantWindow = getWindowObstacle(input, sinkWall);
+  const anyWindow = getWindowObstacle(input);
+  const windowForSink = relevantWindow || anyWindow;
+  const windowDimsMissing = sinkUnderWindow && (!windowForSink || !hasWindowDimensions(windowForSink));
+
+  if (specs.stove && !hasExactUtilityLocation(utilities.gasPipe)) {
+    result.missingQuestions.push(
+      "To place the stove accurately, please provide the gas pipe location: wall and distance from the starting corner."
+    );
+  }
+
+  if (specs.fridge && !hasExactUtilityLocation(utilities.fridgeOutlet)) {
+    result.missingQuestions.push(
+      "To place the refrigerator accurately, please provide the outlet location: wall and distance from the starting corner."
+    );
+  }
+
+  if (sinkUnderWindow && windowDimsMissing) {
+    result.missingQuestions.push(
+      "To place the sink exactly under the window, please provide the window start position and window width."
+    );
+    result.warnings.push(
+      "Sink is placed under the window request, but exact sink cabinet position needs window dimensions."
+    );
+  }
+}
+
 function buildApplianceSpecs(input) {
   const layout = input.layout || {};
   const obstacles = input.obstacles || [];
@@ -169,7 +269,7 @@ function maybeAddSinkUnderWindowQuestion(input, result) {
   });
   if (!hasWindowWall) {
     result.missingQuestions.push(
-      "Which wall is the window on (A or B)? The sink is specified under the window."
+      "To place the sink under the window, please confirm which wall the window is on: A or B."
     );
   }
 }
@@ -179,6 +279,7 @@ function generateKitchenPlan(input) {
     summary: {},
     layout: [],
     upperCabinets: [],
+    cornerCabinet: null,
     cabinetList: [],
     materials: {},
     advice: [],
@@ -232,6 +333,17 @@ function generateKitchenPlan(input) {
 
   const specs = buildApplianceSpecs(input);
   const resolvedSinkWall = specs.sink?.wall ?? "A";
+  const cornerCabinetPlan = getCornerCabinetPlan(input, isLShape);
+  result.cornerCabinet = cornerCabinetPlan;
+  result.summary.cornerCabinet = cornerCabinetPlan;
+
+  maybeAddExactPlacementQuestions(input, specs, result);
+
+  if (cornerCabinetPlan.requested && !cornerCabinetPlan.placed) {
+    result.warnings.push(
+      "Corner cabinet was requested, but a corner cabinet can only be placed in an L-shaped kitchen."
+    );
+  }
 
   const hasSink =
     Boolean(specs.sink) || Boolean(input.layout?.sink_position);
@@ -243,9 +355,9 @@ function generateKitchenPlan(input) {
     });
   }
 
-  if (isLShape) {
+  if (cornerCabinetPlan?.placed) {
     result.cabinetList.push({
-      name: "36 inch corner cabinet",
+      name: cornerCabinetPlan.name,
       qty: 1
     });
   }
@@ -571,6 +683,15 @@ function mapLegacyLayoutItemToCore(wallId, item) {
       type: "base",
       category: "cabinet",
       name: name || `${width} inch base cabinet`,
+      width
+    };
+  }
+  if (item.type === "lazy_susan") {
+    return {
+      wall: wallId,
+      type: "lazy_susan",
+      category: "cabinet",
+      name: name || "Lazy Susan Corner Base",
       width
     };
   }

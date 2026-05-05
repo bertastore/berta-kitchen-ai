@@ -47,12 +47,29 @@ User: "right side has window and sink"
 → appliances include sink with side "right", wall null (or wall "B").
 → obstacles include window with wall "B" or side "right" when inferable.
 
+Detect corner cabinet requests:
+- If the user says "lazy susan", "lazy susan base cabinet", or requests a corner cabinet, set:
+  "cornerCabinet": { "requested": true, "type": "lazy_susan" } for lazy susan
+  or "cornerCabinet": { "requested": true, "type": null } for a generic corner cabinet request.
+- If not mentioned, set "cornerCabinet": { "requested": false, "type": null }.
+
+Extract utility locations when mentioned:
+- gas pipe / gas line for the stove
+- fridge outlet / refrigerator outlet / outlet for the fridge
+Use:
+"utilities": {
+  "gasPipe": { "wall": "A" | "B" | null, "position": null },
+  "fridgeOutlet": { "wall": "A" | "B" | null, "position": null }
+}
+If the wall is inferable from left/right wording, set it. If not mentioned, leave wall and position null.
+
 Extract obstacles: doors, windows, radiators, pipes if mentioned.
 Use obstacle type values: "door", "window", "radiator", "pipe" (lowercase).
 Obstacles use wall "A" or "B" when inferable; otherwise null.
 Optional "side": "left" | "right" on obstacles when the wall letter is not stated (same mapping as appliances).
 
 start, width, height are numbers in inches when given; use null if unknown.
+For windows, capture start and width whenever the user provides them.
 
 Example: user says "door on wall A starts at 90 inches and is 30 inches wide"
 → include in kitchen.obstacles:
@@ -72,6 +89,20 @@ JSON structure:
     },
     "layout": {
       "sink_position": null
+    },
+    "cornerCabinet": {
+      "requested": false,
+      "type": null
+    },
+    "utilities": {
+      "gasPipe": {
+        "wall": null,
+        "position": null
+      },
+      "fridgeOutlet": {
+        "wall": null,
+        "position": null
+      }
     },
     "appliances": [
       {

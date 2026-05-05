@@ -93,6 +93,15 @@ function buildPlanCopyText(plan) {
     }
   }
   lines.push("");
+  lines.push("Details Needed for Exact Layout");
+  if (plan.missingQuestions?.length) {
+    for (const q of plan.missingQuestions) {
+      lines.push(`- ${q}`);
+    }
+  } else {
+    lines.push("None");
+  }
+  lines.push("");
   lines.push("Warnings");
   if (plan.warnings?.length) {
     for (const w of plan.warnings) {
@@ -799,6 +808,39 @@ function App() {
                     ))}
                   </div>
                 ))}
+              </div>
+
+              <div style={summarySectionStyle}>
+                <h3 style={sectionHeadingStyle}>Details Needed for Exact Layout</h3>
+                {plan.missingQuestions?.length ? (
+                  <ul
+                    style={{
+                      margin: "8px 0",
+                      paddingLeft: 20,
+                      textAlign: "left",
+                      listStylePosition: "outside",
+                      ...summaryBodyStyle,
+                      color: "#333",
+                    }}
+                  >
+                    {plan.missingQuestions.map((q, i) => (
+                      <li key={i} style={{ marginBottom: 4 }}>
+                        {q}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p
+                    style={{
+                      margin: "4px 0",
+                      textAlign: "left",
+                      ...summaryBodyStyle,
+                      color: "#333",
+                    }}
+                  >
+                    None
+                  </p>
+                )}
               </div>
 
               <div style={summarySectionStyle}>

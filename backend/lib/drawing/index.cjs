@@ -8,6 +8,8 @@ function getItemColor(type) {
       return "#FF8A65";
     case "fridge":
       return "#BA68C8";
+    case "lazy_susan":
+      return "#E8D9A8";
     case "door":
       return "#E57373";
     case "window":
@@ -27,6 +29,7 @@ function getShortLabel(item) {
     case "dishwasher": return "DW";
     case "stove": return "Stove";
     case "fridge": return "Fridge";
+    case "lazy_susan": return "Lazy Susan";
     case "door": return "Door";
     case "window": return "Window";
     case "filler": return "Filler";
@@ -43,6 +46,7 @@ function drawLegend() {
     { label: "DW", color: "#81C784" },
     { label: "Stove", color: "#FF8A65" },
     { label: "Fridge", color: "#BA68C8" },
+    { label: "Lazy Susan", color: "#E8D9A8" },
     { label: "Base", color: "#D7CCC8" },
     { label: "Upper", color: "#90CAF9" },
     { label: "Door", color: "#E57373" },
@@ -181,13 +185,16 @@ function generateKitchenSVG(plan) {
     const cornerSize = 36 * SCALE;
     const cx = wallALength + GAP;
     const cy = BASE_Y;
+    const cornerType = plan.cornerCabinet?.type || "corner";
+    const cornerLabel =
+      cornerType === "lazy_susan" ? "Lazy Susan" : "Corner";
     svg += `
       <rect
         x="${cx}"
         y="${cy}"
         width="${cornerSize}"
         height="${cornerSize}"
-        fill="#C8B7A6"
+        fill="${cornerType === "lazy_susan" ? getItemColor("lazy_susan") : "#C8B7A6"}"
         stroke="#000"
       />
       <text
@@ -197,7 +204,7 @@ function generateKitchenSVG(plan) {
         fill="#000"
         text-anchor="middle"
         dominant-baseline="middle"
-      >Corner</text>
+      >${cornerLabel}</text>
     `;
   }
 
